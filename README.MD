@@ -4,7 +4,7 @@ Places orders, stoploss orders, close orders, and close positions on the DYDX v4
 
 ## JSON Input
 
-Uses a JSON input file to configure the trading parameters dynamically. Below is an example JSON input structure with placeholders to guide you:
+Uses a JSON input file (tempfile.json) to configure the trading parameters dynamically. Below is an example JSON input structure with placeholders:
 
 ```shell
 {
