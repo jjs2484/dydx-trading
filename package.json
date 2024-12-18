@@ -1,0 +1,14 @@
+{
+  "name": "dydx-v4",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "order": "node scripts/placeOrder.js",
+    "close": "node scripts/closeAll.js"
+  },
+  "dependencies": {
+    "@dydxprotocol/v4-client-js": "^1.15.1",
+    "dotenv": "^16.4.7",
+    "lodash": "^4.17.21"
+  }
+}
