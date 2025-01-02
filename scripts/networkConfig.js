@@ -19,6 +19,9 @@ const NETWORK = new Network(
       USDC_GAS_DENOM: 'uusdc',
       USDC_DECIMALS: 6,
     },
+    {
+      useTimestampNonce: true
+    }
   ),
 );
 
