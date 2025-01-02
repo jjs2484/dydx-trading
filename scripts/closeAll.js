@@ -24,10 +24,29 @@ if (!mnemonic) {
 
 // Helper function to count decimals
 function countDecimals(value) {
-    if (Math.floor(value) === value) return 0; // No decimals
-    const valueStr = value.toString(); // Convert to string
+    // Convert to string
+    let valueStr = value.toString();
+  
+    // If scientific notation detected (e.g. '1e-10', '2.5E+4', etc.),
+    // Convert to a full decimal.
+    if (/[eE]/.test(valueStr)) {
+      // Increase maximumFractionDigits if you have extremely small or large exponents
+      valueStr = value.toLocaleString('fullwide', { 
+        useGrouping: false,
+        maximumFractionDigits: 18 
+      });
+    }
+  
+    // Convert back to number for the integer check
+    const numericValue = Number(valueStr);
+  
+    // If the numeric value is an integer (e.g. 1, 2.0, etc.), return 0
+    if (Math.floor(numericValue) === numericValue) {
+      return 0;
+    }
+  
     const decimalPart = valueStr.split('.')[1]; // Get the part after the decimal
-    return decimalPart ? decimalPart.length : 0; // Return the digits after the decimal
+    return decimalPart ? decimalPart.length : 0; // Count the digits after the decimal
 }
 
 // Cancel all open orders with retry logic
@@ -206,7 +225,7 @@ async function closePositionsWithLimitOrders(maxRetries, delay, client, subaccou
         const client = await CompositeClient.connect(NETWORK);
         const subaccount = new SubaccountClient(wallet, 0);
 
-        const maxCloseRetries = 3;
+        const maxCloseRetries = 5;
         const closeRetryDelay = 14000; // 14 seconds
         await cancelAllOrders(maxCloseRetries, closeRetryDelay, client, subaccount);
         await closePositionsWithLimitOrders(maxCloseRetries, closeRetryDelay, client, subaccount);
