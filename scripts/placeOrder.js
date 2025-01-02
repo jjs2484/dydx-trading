@@ -25,15 +25,29 @@ if (!mnemonic) {
   throw new Error('MNEMONIC not defined in environment variables');
 }
 
-// Helper function to round values
-function roundToTick(value, tick) {
-  return Math.round(value / tick) * tick;
-}
-
 // Helper function to count decimals
 function countDecimals(value) {
-  if (Math.floor(value) === value) return 0; // No decimals
-  const valueStr = value.toString(); // Convert to string
+  // Convert to string
+  let valueStr = value.toString();
+
+  // If scientific notation detected (e.g. '1e-10', '2.5E+4', etc.),
+  // Convert to a full decimal.
+  if (/[eE]/.test(valueStr)) {
+    // Increase maximumFractionDigits if you have extremely small or large exponents
+    valueStr = value.toLocaleString('fullwide', { 
+      useGrouping: false,
+      maximumFractionDigits: 18 
+    });
+  }
+
+  // Convert back to number for the integer check
+  const numericValue = Number(valueStr);
+
+  // If the numeric value is an integer (e.g. 1, 2.0, etc.), return 0
+  if (Math.floor(numericValue) === numericValue) {
+    return 0;
+  }
+
   const decimalPart = valueStr.split('.')[1]; // Get the part after the decimal
   return decimalPart ? decimalPart.length : 0; // Count the digits after the decimal
 }
@@ -74,12 +88,14 @@ function countDecimals(value) {
 
     // Fetch subaccount data
     const subaccountInfo = await client.indexerClient.account.getSubaccount(address, 0);
-    const freeCollateral = Number(subaccountInfo.subaccount.freeCollateral);
+    const accountValue = Number(subaccountInfo.subaccount.equity);
+
+    console.log(`Account value: ${accountValue}`);
 
     // Collateral and leverage calculation
     const accountRatio = allocation; // From temp.json - amount of capital to use
     const leverageRatio = leverage; // From temp.json - leverage to use
-    const usableUsd = freeCollateral * accountRatio;
+    const usableUsd = accountValue * accountRatio;
     const notionalUsd = (usableUsd * leverageRatio) + usableUsd;
 
     // Convert USD to Coin using coinPrice
@@ -104,6 +120,8 @@ function countDecimals(value) {
           const postOnly = false;
           const reduceOnly = false;
           const triggerPrice = null;
+    
+          // Start with a 10% upward/downward offset from market price
           let orderPrice = coinPrice * 1.1; // Adjusted up by 10% for BUY, down by 10% for SELL
           if (side === OrderSide.SELL) {
             orderPrice = coinPrice * 0.9;
@@ -112,7 +130,10 @@ function countDecimals(value) {
           // Round order price to tickSize increments
           const tickDecimals = countDecimals(tickSize);
           orderPrice = Math.round(orderPrice / tickSize) * tickSize;
-          orderPrice = parseFloat(orderPrice.toFixed(tickDecimals));
+          const roundedOrderPrice = parseFloat(orderPrice.toFixed(tickDecimals));
+    
+          // Assign the final, rounded price
+          orderPrice = roundedOrderPrice;
     
           // Fetch the current block height for goodTilBlock
           const heightResponse = await client.indexerClient.utility.getHeight();
@@ -121,6 +142,7 @@ function countDecimals(value) {
     
           console.log(`Placing ${signal.toUpperCase()} order for ${ticker} with size: ${sizeInCoin} Coins (~$${notionalUsd}), orderPrice: ${orderPrice}, clientId: ${clientId}`);
     
+          // Now place the order
           const tx = await client.placeOrder(
             subaccount,
             market,
@@ -140,7 +162,7 @@ function countDecimals(value) {
           if (tx) {
             console.log('Market order placed successfully:', tx);
     
-            // Verify if the market order successfully opened a position
+            // Verify if the market order opened a position
             await new Promise(resolve => setTimeout(resolve, delay)); // Wait before checking
             const positionsResponse = await client.indexerClient.account.getSubaccountPerpetualPositions(
               subaccount.address,
@@ -278,12 +300,12 @@ function countDecimals(value) {
     }
 
     // Place market order with retry
-    const maxOrderRetries = 3;
+    const maxOrderRetries = 5;
     const orderRetryDelay = 14000; // 14 seconds
     await placeMarketOrderWithRetry(maxOrderRetries, orderRetryDelay);
 
     // Place stop-loss order with retry
-    const maxStopLossRetries = 3;
+    const maxStopLossRetries = 5;
     const stopLossRetryDelay = 14000; // 14 seconds
     await placeStopLossOrderWithRetry(maxStopLossRetries, stopLossRetryDelay);
 
